@@ -1,46 +1,48 @@
 import json
 import os
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
-from helpers.MySQLDatabaseHandler import MySQLDatabaseHandler
 import pandas as pd
 
-# ROOT_PATH for linking with all your files. 
-# Feel free to use a config.py or settings.py with a global export variable
-os.environ['ROOT_PATH'] = os.path.abspath(os.path.join("..",os.curdir))
-
-# Get the directory of the current script
+# Setup
+os.environ['ROOT_PATH'] = os.path.abspath(os.path.join("..", os.curdir))
 current_directory = os.path.dirname(os.path.abspath(__file__))
-
-# Specify the path to the JSON file relative to the current script
 json_file_path = os.path.join(current_directory, 'init.json')
 
-# Assuming your JSON data is stored in a file named 'init.json'
-with open(json_file_path, 'r') as file:
+# Load Reddit-style comment data
+with open(json_file_path, 'r', encoding='utf-8') as file:
     data = json.load(file)
-    episodes_df = pd.DataFrame(data['episodes'])
-    reviews_df = pd.DataFrame(data['reviews'])
+    comments_df = pd.DataFrame(data['comments'])
 
 app = Flask(__name__)
 CORS(app)
 
-# Sample search using json with pandas
-def json_search(query):
-    matches = []
-    merged_df = pd.merge(episodes_df, reviews_df, left_on='id', right_on='id', how='inner')
-    matches = merged_df[merged_df['title'].str.lower().str.contains(query.lower())]
-    matches_filtered = matches[['title', 'descr', 'imdb_rating']]
-    matches_filtered_json = matches_filtered.to_json(orient='records')
-    return matches_filtered_json
+# Search function: looks for any matching text in comments
+def search_comments(query):
+    if not query:
+        return []
 
+    # Case-insensitive substring match
+    results = comments_df[comments_df['text'].str.contains(query, case=False, na=False)]
+
+    # Optional: sort by depth (e.g. prioritize top-level comments)
+    results = results.sort_values(by='depth')
+
+    # Return relevant fields
+    return results[['author', 'text', 'depth']].head(20).to_dict(orient='records')
+
+# Homepage route
 @app.route("/")
 def home():
-    return render_template('base.html',title="sample html")
+    return render_template('base.html', title="Reddit Movie Comment Search")
 
-@app.route("/episodes")
-def episodes_search():
-    text = request.args.get("title")
-    return json_search(text)
+# Search endpoint
+@app.route("/search")
+def search_route():
+    query = request.args.get("q", "")
+    results = search_comments(query)
+    return jsonify(results)
 
+# Run the app locally
 if 'DB_NAME' not in os.environ:
-    app.run(debug=True,host="0.0.0.0",port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
