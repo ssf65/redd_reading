@@ -27,11 +27,12 @@
     </div>
 
     <script>
-        function answerBoxTemplate(author, text, depth) {
+        function answerBoxTemplate(author, text, depth, score) {
             return `<div class='comment-result'>
-                <p><strong>${author}</strong> (depth ${depth})</p>
-                <p>${text}</p>
-            </div>`;
+            <p><strong>${author}</strong> (depth ${depth})</p>
+            <p>${text}</p>
+            <p><em>TF-IDF Score: ${score}</em></p>
+        </div>`;
         }
 
         function sendFocus() {
@@ -52,7 +53,7 @@
                     }
                     data.forEach(row => {
                         const tempDiv = document.createElement("div");
-                        tempDiv.innerHTML = answerBoxTemplate(row.author, row.text, row.depth);
+                        tempDiv.innerHTML = answerBoxTemplate(row.author, row.text, row.depth, row.score);
                         document.getElementById("answer-box").appendChild(tempDiv);
                     });
                 });
