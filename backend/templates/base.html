@@ -7,32 +7,34 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Kanit&family=Montserrat&family=Open+Sans:wght@500&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@600&family=Montserrat:wght@400;700&display=swap"
         rel="stylesheet">
 </head>
 
 <body>
     <div class="full-body-container">
-        <div class="top-text">
-            <div class="site-title">
-                <h1>🎬 Reddit Movie Comment Search</h1>
-            </div>
-            <div class="input-box" onclick="sendFocus()">
+        <div class="header">
+            <h1>🎬 Reddit Movie Comment Search</h1>
+            <p class="subtitle">Explore the internet's raw take on film, one comment at a time.</p>
+        </div>
+        <div class="input-section">
+            <div class="input-box">
                 <img src="{{ url_for('static', filename='images/mag.png') }}" />
                 <input placeholder="Search for a movie, character, scene..." id="filter-text-val"
                     onkeyup="filterText()">
             </div>
         </div>
-        <div id="answer-box"></div>
+        <div id="answer-box" class="results-container"></div>
     </div>
 
     <script>
         function answerBoxTemplate(author, text, depth, score) {
-            return `<div class='comment-result'>
-            <p><strong>${author}</strong> (depth ${depth})</p>
-            <p>${text}</p>
-            <p><em>TF-IDF Score: ${score}</em></p>
-        </div>`;
+            return `
+            <div class='comment-card'>
+                <p class='author'>👤 ${author} <span class='depth'>(depth ${depth})</span></p>
+                <p class='comment-text'>${text}</p>
+                <p class='score'>Relevance Score: ${score}</p>
+            </div>`;
         }
 
         function sendFocus() {
@@ -53,7 +55,7 @@
                     }
                     data.forEach(row => {
                         const tempDiv = document.createElement("div");
-                        tempDiv.innerHTML = answerBoxTemplate(row.author, row.text, row.depth, row.score);
+                        tempDiv.innerHTML = answerBoxTemplate(row.author, row.text, row.depth, row.final_score);
                         document.getElementById("answer-box").appendChild(tempDiv);
                     });
                 });
