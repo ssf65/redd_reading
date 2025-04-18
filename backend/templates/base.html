@@ -9,14 +9,75 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@600&family=Montserrat:wght@400;700&display=swap"
         rel="stylesheet">
+    <style>
+        .asoiaf-info-container {
+            position: relative;
+            display: inline-block;
+            margin-top: 10px;
+            font-weight: bold;
+            cursor: default;
+            color: #0077cc;
+            margin-right: 20px;
+        }
+
+        .asoiaf-tooltip {
+            visibility: hidden;
+            background-color: #f9f9f9;
+            color: #333;
+            text-align: left;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            position: absolute;
+            z-index: 1;
+            width: 280px;
+            top: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            font-style: italic;
+            font-weight: normal;
+            font-size: 0.9em;
+        }
+
+        .asoiaf-info-container:hover .asoiaf-tooltip {
+            visibility: visible;
+        }
+
+        .info-bar {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+    </style>
 </head>
 
 <body>
     <div class="full-body-container">
         <div class="header">
-            <h1>🎬 Reddit Movie Comment Search</h1>
+            <h1>🎬 Reddit r/asoiaf Comment Search</h1>
             <p class="subtitle">Explore the internet's raw take on film, one comment at a time.</p>
+
+            <!-- Info buttons -->
+            <div class="info-bar">
+                <div class="asoiaf-info-container">
+                    📚 What is r/asoiaf about?
+                    <div class="asoiaf-tooltip">
+                        r/asoiaf is a deep-dive subreddit for A Song of Ice and Fire book discussions, theories, and
+                        lore.<br>
+                        It's spoiler-heavy and focused on the books, not just the TV show.
+                    </div>
+                </div>
+
+                <div class="asoiaf-info-container">
+                    🎲 Sample Queries
+                    <div class="asoiaf-tooltip" id="sample-queries-tooltip">
+                        <!-- Sample queries will be injected here -->
+                    </div>
+                </div>
+            </div>
         </div>
+
         <div class="input-section">
             <div class="input-box">
                 <img src="{{ url_for('static', filename='images/mag.png') }}" />
@@ -60,6 +121,21 @@
                     });
                 });
         }
+
+        function getRandomSampleQueries() {
+            const allQueries = ["disappointing ending", "dies", "arya stark", "spoiler", "cersei"];
+            const shuffled = allQueries.sort(() => 0.5 - Math.random());
+            return shuffled.slice(0, 3);
+        }
+
+        window.onload = () => {
+            const sampleContainer = document.getElementById("sample-queries-tooltip");
+            const sampleQueries = getRandomSampleQueries();
+            sampleContainer.innerHTML = `
+                <strong>Try out the following sample queries for inspiration!</strong><br><br>
+                ${sampleQueries.map(q => `• ${q}`).join("<br>")}
+            `;
+        };
     </script>
 </body>
 
