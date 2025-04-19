@@ -10,27 +10,34 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@600&family=Montserrat:wght@400;700&display=swap"
         rel="stylesheet">
     <style>
+        body {
+            text-align: center;
+            background-color: #0d1b24;
+            color: white;
+            font-family: 'Montserrat', sans-serif;
+        }
+
         .asoiaf-info-container {
             position: relative;
             display: inline-block;
             margin-top: 10px;
             font-weight: bold;
             cursor: default;
-            color: #0077cc;
+            color: #66b2ff;
             margin-right: 20px;
         }
 
         .asoiaf-tooltip {
             visibility: hidden;
-            background-color: #f9f9f9;
-            color: #333;
+            background-color: #1c2b36;
+            color: white;
             text-align: left;
             padding: 8px 12px;
             border-radius: 6px;
             border: 1px solid #ccc;
             position: absolute;
             z-index: 1;
-            width: 280px;
+            width: 300px;
             top: 120%;
             left: 50%;
             transform: translateX(-50%);
@@ -46,8 +53,75 @@
 
         .info-bar {
             display: flex;
+            justify-content: center;
             gap: 20px;
             flex-wrap: wrap;
+        }
+
+        .comment-card {
+            text-align: left;
+            margin: 10px auto;
+            max-width: 800px;
+            background: #0d1b24;
+            color: white;
+            border-radius: 10px;
+            padding: 10px 15px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .score {
+            color: #cccccc;
+            font-style: italic;
+            margin-top: 5px;
+        }
+
+        .sample-query {
+            color: #66b2ff;
+            cursor: pointer;
+            font-style: normal;
+        }
+
+        .sample-query:hover {
+            text-decoration: underline;
+        }
+
+        .input-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            padding: 6px 16px;
+            border-radius: 30px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+            margin-top: 20px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .input-box img {
+            height: 20px;
+            margin-right: 10px;
+            filter: brightness(0) invert(1);
+        }
+
+        .input-box input {
+            background-color: white;
+            color: #000;
+            border: none;
+            outline: none;
+            padding: 10px;
+            border-radius: 25px;
+            font-size: 1em;
+            width: 400px;
+        }
+
+        .input-box input::placeholder {
+            color: #666;
+        }
+
+        .input-box input:focus {
+            box-shadow: none;
         }
     </style>
 </head>
@@ -58,7 +132,6 @@
             <h1>🎬 Reddit r/asoiaf Comment Search</h1>
             <p class="subtitle">Explore the internet's raw take on film, one comment at a time.</p>
 
-            <!-- Info buttons -->
             <div class="info-bar">
                 <div class="asoiaf-info-container">
                     📚 What is r/asoiaf about?
@@ -72,7 +145,19 @@
                 <div class="asoiaf-info-container">
                     🎲 Sample Queries
                     <div class="asoiaf-tooltip" id="sample-queries-tooltip">
-                        <!-- Sample queries will be injected here -->
+                        <!-- Random sample queries will go here -->
+                    </div>
+                </div>
+
+                <div class="asoiaf-info-container">
+                    📈 What is the relevance score?
+                    <div class="asoiaf-tooltip">
+                        The relevance score is calculated using a hybrid of TF-IDF filtering and BERT-based semantic
+                        similarity, with an additional length-based score boost.<br><br>
+                        Users should judge the relevance score using the following metric:<br>
+                        <strong>Great</strong>: 2.5 or higher<br>
+                        <strong>Good</strong>: 1.5 – 2.5<br>
+                        <strong>Poor</strong>: 1.5 or below
                     </div>
                 </div>
             </div>
@@ -85,6 +170,7 @@
                     onkeyup="filterText()">
             </div>
         </div>
+
         <div id="answer-box" class="results-container"></div>
     </div>
 
@@ -131,11 +217,17 @@
         window.onload = () => {
             const sampleContainer = document.getElementById("sample-queries-tooltip");
             const sampleQueries = getRandomSampleQueries();
-            sampleContainer.innerHTML = `
-                <strong>Try out the following sample queries for inspiration!</strong><br><br>
-                ${sampleQueries.map(q => `• ${q}`).join("<br>")}
-            `;
+            sampleContainer.innerHTML =
+                `<strong>Try out the following sample queries for inspiration!</strong><br><br>` +
+                sampleQueries.map(q =>
+                    `<span class="sample-query" onclick="runSampleQuery('${q}')">• ${q}</span>`
+                ).join("<br>");
         };
+
+        function runSampleQuery(query) {
+            document.getElementById("filter-text-val").value = query;
+            filterText();
+        }
     </script>
 </body>
 
