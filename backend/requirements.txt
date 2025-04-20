@@ -28,3 +28,4 @@ sentence-transformers==4.0.2
 transformers==4.51.2
 scikit-learn==1.6.1
 torch==2.5.0
+better-profanity==0.7.0

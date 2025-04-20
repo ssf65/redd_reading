@@ -144,9 +144,7 @@
 
                 <div class="asoiaf-info-container">
                     🎲 Sample Queries
-                    <div class="asoiaf-tooltip" id="sample-queries-tooltip">
-                        <!-- Random sample queries will go here -->
-                    </div>
+                    <div class="asoiaf-tooltip" id="sample-queries-tooltip"></div>
                 </div>
 
                 <div class="asoiaf-info-container">
@@ -160,6 +158,14 @@
                         <strong>Poor</strong>: 1.5 or below
                     </div>
                 </div>
+
+                <div class="asoiaf-info-container">
+                    📏 What is depth?
+                    <div class="asoiaf-tooltip">
+                        Depth refers to how nested a comment is in a Reddit thread.<br>
+                        A depth of 0 is a top-level comment; higher values are replies.
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -169,6 +175,12 @@
                 <input placeholder="Search for a movie, character, scene..." id="filter-text-val"
                     onkeyup="filterText()">
             </div>
+            <div style="margin-top: 10px;">
+                <label style="font-size: 0.95em;">
+                    <input type="checkbox" id="offensive-toggle" onchange="filterText()" style="margin-right: 6px;">
+                    Filter offensive language
+                </label>
+            </div>
         </div>
 
         <div id="answer-box" class="results-container"></div>
@@ -177,23 +189,24 @@
     <script>
         function answerBoxTemplate(author, text, depth, score) {
             return `
-            <div class='comment-card'>
-                <p class='author'>👤 ${author} <span class='depth'>(depth ${depth})</span></p>
-                <p class='comment-text'>${text}</p>
-                <p class='score'>Relevance Score: ${score}</p>
-            </div>`;
-        }
-
-        function sendFocus() {
-            document.getElementById('filter-text-val').focus();
+                <div class='comment-card'>
+                    <p class='author'>👤 ${author} <span class='depth'>(depth ${depth})</span></p>
+                    <p class='comment-text'>${text}</p>
+                    <p class='score'>Relevance Score: ${score}</p>
+                </div>`;
         }
 
         function filterText() {
             document.getElementById("answer-box").innerHTML = "";
             const query = document.getElementById("filter-text-val").value;
+            const filterOffensive = document.getElementById("offensive-toggle").checked;
+
             if (!query) return;
 
-            fetch("/search?" + new URLSearchParams({ q: query }))
+            fetch("/search?" + new URLSearchParams({
+                q: query,
+                filter_offensive: filterOffensive
+            }))
                 .then(response => response.json())
                 .then(data => {
                     if (data.length === 0) {
