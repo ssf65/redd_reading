@@ -1,33 +1,17 @@
-/* Twilight night background with stars */
+/* Reddit dark mode inspired background */
 body {
     margin: 0;
     padding: 0;
-    background: linear-gradient(to bottom, #0f2027, #203a43, #2c5364);
-    font-family: 'Open Sans', sans-serif;
-    color: #f1f1f1;
+    background-color: #030303;
+    /* Pitch black with subtle variation */
+    font-family: 'Noto Sans', sans-serif;
+    color: #d7dadc;
     overflow-x: hidden;
 }
 
-/* Subtle moving stars */
+/* Remove animated star overlay */
 body::before {
-    content: "";
-    position: fixed;
-    width: 100%;
-    height: 100%;
-    background: url('https://raw.githubusercontent.com/khoji/starfield-background/main/starfield.png') repeat;
-    animation: starMove 200s linear infinite;
-    opacity: 0.15;
-    z-index: -1;
-}
-
-@keyframes starMove {
-    from {
-        background-position: 0 0;
-    }
-
-    to {
-        background-position: 10000px 10000px;
-    }
+    content: none;
 }
 
 /* Full layout */
@@ -41,65 +25,29 @@ body::before {
     padding-top: 3rem;
 }
 
-/* Google-style logo stays */
-.google-colors {
-    display: flex;
-    align-items: center;
-    font-size: 3rem;
-    font-family: 'Kanit', sans-serif;
-    letter-spacing: 1px;
-}
-
-.google-colors h1 {
-    margin: 0 4px 0 0;
-}
-
-#google-c {
-    color: #4285F4;
-}
-
-#google-s {
-    color: #DB4437;
-}
-
-#google-4 {
-    color: #F4B400;
-}
-
-#google-3 {
-    color: #4285F4;
-}
-
-#google-0-1 {
-    color: #0F9D58;
-}
-
-#google-0-2 {
-    color: #DB4437;
-}
-
-/* Input box like Reddit search */
+/* Reddit style search input */
 .input-box {
-    border-radius: 50px;
-    background-color: #1a1a1d;
-    border: 1px solid #3c3c3e;
+    border-radius: 6px;
+    background-color: #1a1a1b;
+    border: 1px solid #343536;
     display: flex;
     align-items: center;
     margin-top: 20px;
-    padding: 14px 20px;
+    padding: 10px 16px;
     width: 90%;
     max-width: 600px;
-    box-shadow: 0 0 10px rgba(255, 102, 0, 0.25);
+    box-shadow: none;
     transition: all 0.2s ease;
 }
 
 .input-box:hover {
-    box-shadow: 0 0 14px rgba(255, 102, 0, 0.4);
+    border-color: #818384;
 }
 
 .input-box img {
     height: 20px;
     width: 20px;
+    filter: brightness(0) invert(1);
 }
 
 .input-box input {
@@ -108,25 +56,25 @@ body::before {
     font-size: 16px;
     border: none;
     background: transparent;
-    color: #fff;
+    color: #d7dadc;
     outline: none;
 }
 
-/* Comment display area */
+/* Comment results container */
 #answer-box {
     width: 95%;
     max-width: 720px;
     margin-top: 3rem;
 }
 
-/* Reddit-style comment box */
+/* Reddit dark comment style */
 .comment-card {
-    background-color: #1b1b1f;
+    background-color: #1a1a1b;
     border-left: 4px solid #ff4500;
     padding: 1rem;
     margin-bottom: 1.5rem;
     border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
     transition: transform 0.2s ease;
 }
 
@@ -143,7 +91,7 @@ body::before {
 
 .depth {
     font-size: 0.85rem;
-    color: #888;
+    color: #818384;
     margin-left: 6px;
 }
 
@@ -151,12 +99,43 @@ body::before {
     margin: 0.5rem 0;
     line-height: 1.6;
     font-size: 1rem;
-    font-family: 'Open Sans', sans-serif;
-    color: #ddd;
+    font-family: 'Noto Sans', sans-serif;
+    color: #d7dadc;
 }
 
 .score {
     font-size: 0.85rem;
-    color: #bbbbbb;
+    color: #9a9a9a;
     font-style: italic;
+}
+
+/* Scrollable list styling */
+.post-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0 auto;
+    width: 70%;
+    text-align: left;
+    background-color: #0b0b0b;
+    border: 1px solid #343536;
+    border-radius: 6px;
+}
+
+.post-list div {
+    background-color: #1a1a1b;
+    padding: 10px;
+    border-bottom: 1px solid #343536;
+    cursor: pointer;
+    color: #d7dadc;
+}
+
+.post-list div.active {
+    background-color: #2d2d2d;
+}
+
+/* Title highlight */
+#current-post-title {
+    margin-top: 10px;
+    font-size: 1rem;
+    color: #d7dadc;
 }
