@@ -68,8 +68,8 @@
             cursor: pointer;
         }
 
-        .post-list div.active {
-            background-color: #3a3a3c;
+        .post-list label {
+            cursor: pointer;
         }
 
         .comment-card {
@@ -88,14 +88,12 @@
             font-style: italic;
         }
 
-        .selected-title {
-            margin-top: 10px;
-            font-size: 1.1em;
-            color: #ccc;
-        }
-
         a {
             color: #69c0ff;
+        }
+
+        #comment-results {
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -103,40 +101,42 @@
 <body>
     <div class="header">
         <h1>🎬 Reddit r/gameofthrones Comment Search</h1>
-        <p class="subtitle">Step 1: Search for a post, Step 2: Explore the comments</p>
+        <p class="subtitle">Step 1: Select posts, Step 2: Search for comment keywords</p>
 
         <div style="margin-top: 12px; color: #999; font-size: 0.9em;">
+            <strong>🔍 Why aren’t the results changing?</strong><br>
+            If the comment results don't update, your query terms may not appear in any selected post. Try different
+            keywords.
+        </div>
+        <div style="margin-top: 12px; color: #999; font-size: 0.9em;">
             <strong>📈 What is the relevance score?</strong><br>
-            It measures how relevant each comment is to your search.<br>
-            <span style="color: #ff6961;">Less than 0.7:</span> Not very relevant<br>
-            <span style="color: #f6c85f;">0.7 – 1.5:</span> Good relevance<br>
-            <span style="color: #77dd77;">Above 1.5:</span> Highly relevant
+            <span style="color: #ff6961;">&lt; 0.7</span>: Low · <span style="color: #f6c85f;">0.7–1.5</span>: Good ·
+            <span style="color: #77dd77;">&gt; 1.5</span>: Excellent
         </div>
     </div>
 
-
+    <!-- Title Search -->
     <div class="search-section">
         <div class="input-box">
             <input id="title-query" placeholder="Search post titles..." onkeyup="searchTitles(event)">
         </div>
         <div class="post-list" id="post-results"></div>
-        <div class="selected-title" id="selected-title"></div>
     </div>
 
+    <!-- Comment Search -->
     <div class="search-section">
         <div class="input-box">
-            <input id="comment-query" placeholder="Search comments..." onkeyup="searchComments()">
+            <input id="comment-query" placeholder="Search comments..." onkeyup="maybeSearchComments(event)">
         </div>
         <label>
-            <input type="checkbox" id="filter-offensive" onchange="searchComments()"> Filter offensive language
-        </label>
+            <input type="checkbox" id="filter-offensive"> Filter offensive language
+        </label><br>
+        <button onclick="searchComments()">Search Comments in Selected Posts</button>
         <div id="comment-results"></div>
     </div>
 
     <script>
-        let currentPostId = "";
         let currentResults = [];
-        let selectedIndex = -1;
 
         function searchTitles(e) {
             const query = document.getElementById("title-query").value.toLowerCase();
@@ -146,25 +146,6 @@
                     currentResults = posts.filter(p => p.title.toLowerCase().includes(query));
                     renderPostResults();
                 });
-
-            if (e && e.key === "ArrowDown") {
-                selectedIndex = (selectedIndex + 1) % currentResults.length;
-                highlightResult();
-            } else if (e && e.key === "ArrowUp") {
-                selectedIndex = (selectedIndex - 1 + currentResults.length) % currentResults.length;
-                highlightResult();
-            } else if (e && e.key === "Enter" && currentResults[selectedIndex]) {
-                selectPost(currentResults[selectedIndex]);
-            } else {
-                selectedIndex = -1;
-            }
-        }
-
-        function highlightResult() {
-            const divs = document.querySelectorAll("#post-results div");
-            divs.forEach((div, i) => {
-                div.classList.toggle("active", i === selectedIndex);
-            });
         }
 
         function renderPostResults() {
@@ -172,33 +153,33 @@
             list.innerHTML = "";
             currentResults.forEach((post, index) => {
                 const div = document.createElement("div");
-                div.textContent = `${index + 1}. ${post.title} (${post.num_comments} comments)`;
-                div.onclick = () => selectPost(post);
+                div.innerHTML = `<label><input type="checkbox" value="${post.post_id}" class="post-checkbox"> ${post.title} (${post.num_comments} comments)</label>`;
                 list.appendChild(div);
             });
-            highlightResult();
         }
 
-        function selectPost(post) {
-            currentPostId = post.post_id;
-            document.getElementById("selected-title").innerText = `Currently viewing: ${post.title}`;
-            searchComments();
+        function getSelectedPostIds() {
+            return Array.from(document.querySelectorAll(".post-checkbox:checked"))
+                .map(cb => cb.value);
+        }
+
+        function maybeSearchComments(e) {
+            if (e.key === "Enter") searchComments();
         }
 
         function searchComments() {
-            if (!currentPostId) return;
-
-            let query = document.getElementById("comment-query").value;
+            const query = document.getElementById("comment-query").value;
             const offensive = document.getElementById("filter-offensive").checked;
+            const postIds = getSelectedPostIds();
+            if (!query.trim() || postIds.length === 0) return;
 
-            // If query is empty, fallback to wildcard (get all comments)
-            if (!query.trim()) query = ".";  // A character that matches most things
+            const queryParams = new URLSearchParams([
+                ...postIds.map(id => ['post_ids', id]),
+                ['q', query],
+                ['filter_offensive', offensive]
+            ]);
 
-            fetch("/search_comments?" + new URLSearchParams({
-                q: query,
-                post_id: currentPostId,
-                filter_offensive: offensive
-            }))
+            fetch("/search_comments?" + queryParams.toString())
                 .then(res => res.json())
                 .then(data => {
                     const container = document.getElementById("comment-results");
@@ -209,6 +190,7 @@
                         card.innerHTML = `<p><strong>${comment.author}</strong></p>
                     <p>${comment.text}</p>
                     <p class='score'>Relevance Score: ${comment.final_score}</p>
+                    <p class='score'><strong>SVD Labels:</strong><br>${Object.entries(comment.label_details || {}).map(([dim, val]) => `${dim}: ${val}`).join("<br>")}</p>
                     <a href='${comment.permalink}' target='_blank'>View on Reddit</a>`;
                         container.appendChild(card);
                     });

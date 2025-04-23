@@ -1,42 +1,40 @@
 import os
 import json
 import math
+import pandas as pd
+import numpy as np
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from sentence_transformers import SentenceTransformer, util
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.decomposition import TruncatedSVD
 from better_profanity import profanity
-import pandas as pd
 
 # Load profanity filter
 profanity.load_censor_words()
 
+# Flask app setup
 app = Flask(__name__)
 CORS(app)
 
-# Paths
+# Load JSON data
 current_directory = os.path.dirname(os.path.abspath(__file__))
-grouped_path = os.path.join(current_directory, "init.json")
-
-# Load only the titles and post ID mapping
-with open(grouped_path, "r", encoding="utf-8") as f:
+json_path = os.path.join(current_directory, "init.json")
+with open(json_path, "r", encoding="utf-8") as f:
     raw_data = json.load(f)
 
 title_to_id = {}
 id_to_meta = {}
 
+# Build title-ID mapping
 for item in raw_data:
     post_id = item["post_url"].split("/")[-1]
     title_to_id[item["title"]] = post_id
-    id_to_meta[post_id] = item  # includes 'title', 'comments', etc.
-
-# Load BERT model once
-bert_model = SentenceTransformer("paraphrase-MiniLM-L6-v2")
+    id_to_meta[post_id] = item
 
 @app.route("/")
 def home():
-    return render_template("base.html", title="Reddit Movie Comment Search")
+    return render_template("base.html", title="Reddit Comment Search")
 
 @app.route("/titles")
 def get_titles():
@@ -47,50 +45,102 @@ def get_titles():
 
 @app.route("/search_comments")
 def search_comments():
-    post_id = request.args.get("post_id", "")
+    post_ids = request.args.getlist("post_ids")
     query = request.args.get("q", "")
     filter_flag = request.args.get("filter_offensive", "false").lower() == "true"
 
-    if not post_id or post_id not in id_to_meta or not query.strip():
+    if not post_ids or not query.strip():
         return jsonify([])
 
-    comments = id_to_meta[post_id]["comments"]
-    df = pd.DataFrame(comments)
-    df['text'] = df['text'].fillna("")
-    texts = df['text'].tolist()
+    # Collect comments from all selected posts
+    all_comments = []
+    for pid in post_ids:
+        if pid in id_to_meta:
+            comments = id_to_meta[pid].get("comments", [])
+            for comment in comments:
+                if "text" in comment and comment["text"].strip():
+                    all_comments.append(comment)
 
-    # TF-IDF
-    vectorizer = TfidfVectorizer(stop_words='english')
-    tfidf_matrix = vectorizer.fit_transform(texts)
+    if not all_comments:
+        return jsonify([])
+
+    df = pd.DataFrame(all_comments)
+    df["text"] = df["text"].fillna("")
+
+    # Remove deleted or empty comments
+    df = df[df["text"].str.strip().str.lower().ne("[deleted]")]
+    df = df[df["text"].str.strip() != ""]
+
+    texts = df["text"].tolist()
+    if not texts:
+        return jsonify([])
+
+    # TF-IDF Vectorization
+    vectorizer = TfidfVectorizer(
+        stop_words='english',
+        max_features=1000,
+        token_pattern=r"(?u)\b\w\w+\b"
+    )
+    try:
+        tfidf_matrix = vectorizer.fit_transform(texts)
+    except ValueError:
+        return jsonify([])
+
     query_vec = vectorizer.transform([query])
     tfidf_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
     top_indices = tfidf_scores.argsort()[-100:][::-1].copy()
 
-    # BERT similarity
-    candidate_embeddings = bert_model.encode([texts[i] for i in top_indices], convert_to_tensor=True)
-    query_embedding = bert_model.encode(query, convert_to_tensor=True)
-    bert_scores = util.pytorch_cos_sim(query_embedding, candidate_embeddings)[0]
+    # SVD for interpretability
+    svd = TruncatedSVD(n_components=5, random_state=42)
+    try:
+        svd_matrix = svd.fit_transform(tfidf_matrix[top_indices])
+    except ValueError:
+        return jsonify([])
+
+    components = svd.components_
+    feature_names = vectorizer.get_feature_names_out()
+
+    # Generate interpretable labels
+    dimension_labels = []
+    for comp in components:
+        sorted_indices = np.argsort(comp)[::-1]
+        filtered_terms = []
+        for idx in sorted_indices:
+            term = feature_names[idx].lower()
+            if term not in ["deleted", "ve", "im", "dont", "didn", "http", "https"]:
+                filtered_terms.append(term)
+            if len(filtered_terms) == 3:
+                break
+        dimension_labels.append("/".join(filtered_terms))
 
     results = []
-    for score, i in zip(bert_scores, range(len(top_indices))):
-        real_idx = top_indices[i]
-        row = df.iloc[real_idx]
-        text = row['text']
+    for i, idx in enumerate(top_indices[:20]):
+        row = df.iloc[idx]
+        text = row["text"]
         if filter_flag:
             text = profanity.censor(text)
+
+        doc_vector = svd_matrix[i]
+        label_details = {
+            f"Dim{d+1}: {dimension_labels[d]}": round(doc_vector[d], 3)
+            for d in range(len(dimension_labels))
+        }
+
         length_boost = math.log(1 + len(text.split()))
-        final_score = float(score) * length_boost
+        final_score = tfidf_scores[idx] * length_boost
+
         results.append({
             "author": row.get("user", "unknown"),
             "text": text,
             "depth": 0,
-            "bert_score": round(float(score), 4),
+            "tfidf_score": round(tfidf_scores[idx], 4),
             "length_boost": round(length_boost, 4),
             "final_score": round(final_score, 4),
-            "permalink": row.get("full_permalink", ""),
+            "label_details": label_details,
+            "permalink": row.get("full_permalink", "")
         })
 
-    return jsonify(sorted(results, key=lambda x: x['final_score'], reverse=True)[:20])
+    return jsonify(sorted(results, key=lambda r: r["final_score"], reverse=True))
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
