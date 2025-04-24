@@ -139,11 +139,11 @@
         let currentResults = [];
 
         function searchTitles(e) {
-            const query = document.getElementById("title-query").value.toLowerCase();
-            fetch("/titles")
+            const query = document.getElementById("title-query").value;
+            fetch(`/titles?q=${encodeURIComponent(query)}`)
                 .then(res => res.json())
                 .then(posts => {
-                    currentResults = posts.filter(p => p.title.toLowerCase().includes(query));
+                    currentResults = posts;   // server has already filtered & ranked
                     renderPostResults();
                 });
         }
@@ -151,7 +151,7 @@
         function renderPostResults() {
             const list = document.getElementById("post-results");
             list.innerHTML = "";
-            currentResults.forEach((post, index) => {
+            currentResults.forEach(post => {
                 const div = document.createElement("div");
                 div.innerHTML = `<label><input type="checkbox" value="${post.post_id}" class="post-checkbox"> ${post.title} (${post.num_comments} comments)</label>`;
                 list.appendChild(div);
@@ -196,7 +196,6 @@
                     });
                 });
         }
-
     </script>
 </body>
 

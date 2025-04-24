@@ -1,11 +1,12 @@
 import os
 import json
 import math
+import re
 import pandas as pd
 import numpy as np
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.decomposition import TruncatedSVD
 from better_profanity import profanity
@@ -25,12 +26,27 @@ with open(json_path, "r", encoding="utf-8") as f:
 
 title_to_id = {}
 id_to_meta = {}
+titles = []
+post_ids = []
 
-# Build title-ID mapping
+# Build title-ID mapping and title list
 for item in raw_data:
     post_id = item["post_url"].split("/")[-1]
-    title_to_id[item["title"]] = post_id
+    title = item["title"]
+    title_to_id[title] = post_id
     id_to_meta[post_id] = item
+    titles.append(title)
+    post_ids.append(post_id)
+
+# Utility: tokenize + stop-word removal for Jaccard
+stop_words = ENGLISH_STOP_WORDS
+
+def tokenize(text):
+    clean = re.sub(r"[^\w\s]", "", text.lower())
+    return set(w for w in clean.split() if w and w not in stop_words)
+
+# Precompute token sets for each title
+title_token_sets = [tokenize(t) for t in titles]
 
 @app.route("/")
 def home():
@@ -38,9 +54,51 @@ def home():
 
 @app.route("/titles")
 def get_titles():
+    raw_q = request.args.get("q", "").strip()
+    if not raw_q:
+        # No query: return all titles
+        return jsonify([
+            {
+                "title": t,
+                "post_id": pid,
+                "num_comments": id_to_meta[pid]["num_comments"]
+            }
+            for t, pid in title_to_id.items()
+        ])
+
+    # Tokenize query
+    q_tokens = tokenize(raw_q)
+    if not q_tokens:
+        return jsonify([])
+
+    # Compute Jaccard similarity for each title
+    jaccard_scores = []
+    for ts in title_token_sets:
+        if not ts:
+            jaccard_scores.append(0.0)
+        else:
+            inter = q_tokens & ts
+            union = q_tokens | ts
+            jaccard_scores.append(len(inter) / len(union))
+
+    # Rank titles by descending Jaccard score, filter out zero
+    ranked = [
+        i
+        for i in sorted(range(len(jaccard_scores)),
+                        key=lambda i: jaccard_scores[i],
+                        reverse=True)
+        if jaccard_scores[i] > 0
+    ]
+
+    # Return top 20 matches
     return jsonify([
-        {"title": title, "post_id": pid, "num_comments": id_to_meta[pid]["num_comments"]}
-        for title, pid in title_to_id.items()
+        {
+            "title": titles[i],
+            "post_id": post_ids[i],
+            "num_comments": id_to_meta[post_ids[i]]["num_comments"],
+            "jaccard": round(jaccard_scores[i], 4)
+        }
+        for i in ranked[:20]
     ])
 
 @app.route("/search_comments")
@@ -52,7 +110,6 @@ def search_comments():
     if not post_ids or not query.strip():
         return jsonify([])
 
-    # Collect comments from all selected posts
     all_comments = []
     for pid in post_ids:
         if pid in id_to_meta:
@@ -66,8 +123,6 @@ def search_comments():
 
     df = pd.DataFrame(all_comments)
     df["text"] = df["text"].fillna("")
-
-    # Remove deleted or empty comments
     df = df[df["text"].str.strip().str.lower().ne("[deleted]")]
     df = df[df["text"].str.strip() != ""]
 
@@ -75,7 +130,6 @@ def search_comments():
     if not texts:
         return jsonify([])
 
-    # TF-IDF Vectorization
     vectorizer = TfidfVectorizer(
         stop_words='english',
         max_features=1000,
@@ -90,7 +144,6 @@ def search_comments():
     tfidf_scores = cosine_similarity(query_vec, tfidf_matrix).flatten()
     top_indices = tfidf_scores.argsort()[-100:][::-1].copy()
 
-    # SVD for interpretability
     svd = TruncatedSVD(n_components=5, random_state=42)
     try:
         svd_matrix = svd.fit_transform(tfidf_matrix[top_indices])
@@ -100,7 +153,6 @@ def search_comments():
     components = svd.components_
     feature_names = vectorizer.get_feature_names_out()
 
-    # Generate interpretable labels
     dimension_labels = []
     for comp in components:
         sorted_indices = np.argsort(comp)[::-1]
