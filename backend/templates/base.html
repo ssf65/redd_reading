@@ -120,6 +120,9 @@
         <div class="input-box">
             <input id="title-query" placeholder="Search post titles..." onkeyup="searchTitles(event)">
         </div>
+        <label style="color: #ccc;">
+            <input type="checkbox" id="no-spoilers-checkbox"> No spoilers
+        </label>
         <div class="post-list" id="post-results"></div>
     </div>
 
@@ -140,10 +143,13 @@
 
         function searchTitles(e) {
             const query = document.getElementById("title-query").value;
-            fetch(`/titles?q=${encodeURIComponent(query)}`)
+            const noSpoilers = document.getElementById("no-spoilers-checkbox").checked;
+
+            const url = `/titles?q=${encodeURIComponent(query)}&no_spoilers=${noSpoilers}`;
+            fetch(url)
                 .then(res => res.json())
                 .then(posts => {
-                    currentResults = posts;   // server has already filtered & ranked
+                    currentResults = posts;
                     renderPostResults();
                 });
         }
@@ -184,14 +190,25 @@
                 .then(data => {
                     const container = document.getElementById("comment-results");
                     container.innerHTML = "";
+
+                    if (data.length === 0) {
+                        const msg = document.createElement("div");
+                        msg.style.color = "#ff6961";
+                        msg.style.fontSize = "1em";
+                        msg.style.marginTop = "10px";
+                        msg.textContent = "❗ No relevant comments found. Try a different search phrase!";
+                        container.appendChild(msg);
+                        return;
+                    }
+
                     data.forEach(comment => {
                         const card = document.createElement("div");
                         card.className = "comment-card";
                         card.innerHTML = `<p><strong>${comment.author}</strong></p>
-                    <p>${comment.text}</p>
-                    <p class='score'>Relevance Score: ${comment.final_score}</p>
-                    <p class='score'><strong>SVD Labels:</strong><br>${Object.entries(comment.label_details || {}).map(([dim, val]) => `${dim}: ${val}`).join("<br>")}</p>
-                    <a href='${comment.permalink}' target='_blank'>View on Reddit</a>`;
+                            <p>${comment.text}</p>
+                            <p class='score'>Relevance Score: ${comment.final_score}</p>
+                            <p class='score'><strong>SVD Labels:</strong><br>${Object.entries(comment.label_details || {}).map(([dim, val]) => `${dim}: ${val}`).join("<br>")}</p>
+                            <a href='${comment.permalink}' target='_blank'>View on Reddit</a>`;
                         container.appendChild(card);
                     });
                 });

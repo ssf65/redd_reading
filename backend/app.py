@@ -55,25 +55,35 @@ def home():
 @app.route("/titles")
 def get_titles():
     raw_q = request.args.get("q", "").strip()
+    no_spoilers = request.args.get("no_spoilers", "false").lower() == "true"
+
+    filtered_titles = []
+    filtered_post_ids = []
+    filtered_token_sets = []
+
+    for i, title in enumerate(titles):
+        if no_spoilers and "[SPOILERS]" in title.upper():
+            continue
+        filtered_titles.append(title)
+        filtered_post_ids.append(post_ids[i])
+        filtered_token_sets.append(title_token_sets[i])
+
     if not raw_q:
-        # No query: return all titles
         return jsonify([
             {
-                "title": t,
-                "post_id": pid,
-                "num_comments": id_to_meta[pid]["num_comments"]
+                "title": filtered_titles[i],
+                "post_id": filtered_post_ids[i],
+                "num_comments": id_to_meta[filtered_post_ids[i]]["num_comments"]
             }
-            for t, pid in title_to_id.items()
+            for i in range(len(filtered_titles))
         ])
 
-    # Tokenize query
     q_tokens = tokenize(raw_q)
     if not q_tokens:
         return jsonify([])
 
-    # Compute Jaccard similarity for each title
     jaccard_scores = []
-    for ts in title_token_sets:
+    for ts in filtered_token_sets:
         if not ts:
             jaccard_scores.append(0.0)
         else:
@@ -81,25 +91,22 @@ def get_titles():
             union = q_tokens | ts
             jaccard_scores.append(len(inter) / len(union))
 
-    # Rank titles by descending Jaccard score, filter out zero
     ranked = [
         i
-        for i in sorted(range(len(jaccard_scores)),
-                        key=lambda i: jaccard_scores[i],
-                        reverse=True)
+        for i in sorted(range(len(jaccard_scores)), key=lambda i: jaccard_scores[i], reverse=True)
         if jaccard_scores[i] > 0
     ]
 
-    # Return top 20 matches
     return jsonify([
         {
-            "title": titles[i],
-            "post_id": post_ids[i],
-            "num_comments": id_to_meta[post_ids[i]]["num_comments"],
+            "title": filtered_titles[i],
+            "post_id": filtered_post_ids[i],
+            "num_comments": id_to_meta[filtered_post_ids[i]]["num_comments"],
             "jaccard": round(jaccard_scores[i], 4)
         }
-        for i in ranked[:20]
+        for i in ranked
     ])
+
 
 @app.route("/search_comments")
 def search_comments():
@@ -181,16 +188,18 @@ def search_comments():
         length_boost = math.log(1 + len(text.split()))
         final_score = tfidf_scores[idx] * length_boost
 
-        results.append({
-            "author": row.get("user", "unknown"),
-            "text": text,
-            "depth": 0,
-            "tfidf_score": round(tfidf_scores[idx], 4),
-            "length_boost": round(length_boost, 4),
-            "final_score": round(final_score, 4),
-            "label_details": label_details,
-            "permalink": row.get("full_permalink", "")
-        })
+        if final_score > 0:
+            results.append({
+                "author": row.get("user", "unknown"),
+                "text": text,
+                "depth": 0,
+                "tfidf_score": round(tfidf_scores[idx], 4),
+                "length_boost": round(length_boost, 4),
+                "final_score": round(final_score, 4),
+                "label_details": label_details,
+                "permalink": row.get("full_permalink", "")
+            })
+
 
     return jsonify(sorted(results, key=lambda r: r["final_score"], reverse=True))
 
